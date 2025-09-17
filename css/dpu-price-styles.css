@@ -1,0 +1,147 @@
+/* Dynamic Price Updater - Clean and Simple Design */
+.dpu-price-container {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    margin: 1.5rem 0;
+    position: relative;
+}
+
+.dpu-price-wrapper {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    position: relative;
+}
+
+.dpu-price-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.dpu-price-row:last-child {
+    margin-bottom: 0;
+}
+
+.dpu-price-main {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.dpu-original-price {
+    color: #64748b;
+    text-decoration: line-through;
+    font-size: 0.875rem;
+    font-weight: 400;
+}
+
+.dpu-discounted-price,
+.dpu-regular-price {
+    color: #1e293b;
+    font-weight: 700;
+    font-size: 1.25rem;
+    line-height: 1.2;
+}
+
+.dpu-discounted-price {
+    color: #dc2626;
+}
+
+.dpu-total-price {
+    background: linear-gradient(135deg, #1a1a1a 0%, #000000 100%);
+    color: white !important;
+    font-weight: 600;
+    font-size: 0.875rem;
+    padding: 0.625rem 1rem;
+    border-radius: 8px;
+    border: 1px solid #333333;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.dpu-total-price:hover {
+    background: linear-gradient(135deg, #333333 0%, #1a1a1a 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.dpu-total-price:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dpu-total-price.dpu-clicked {
+    animation: buttonPulse 0.3s ease;
+}
+
+@keyframes buttonPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.98); }
+    100% { transform: scale(1); }
+}
+
+/* Ensure all text in the button is white */
+.dpu-total-price *,
+.dpu-total-price span,
+.dpu-total-price .woocommerce-Price-amount,
+.dpu-total-price .woocommerce-Price-currencySymbol {
+    color: white !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+.dpu-total-price.dpu-adding-to-cart {
+    opacity: 0.8;
+    cursor: not-allowed;
+}
+
+.dpu-savings-badge {
+    background: #f59e0b;
+    color: white;
+    font-weight: 700;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    position: absolute;
+    top: -8px;
+    right: -8px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .dpu-price-wrapper {
+        padding: 0.75rem;
+        margin: 1rem 0;
+    }
+
+    .dpu-price-main {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .dpu-discounted-price,
+    .dpu-regular-price {
+        font-size: 1.125rem;
+    }
+
+    .dpu-total-price {
+        font-size: 0.8125rem;
+        padding: 0.5rem 0.875rem;
+    }
+}
+
+/* Loading state */
+.dpu-price-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
