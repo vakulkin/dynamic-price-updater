@@ -1,25 +1,29 @@
 jQuery(document).ready(function($) {
     // Check if we're on a single product page
     if (typeof dpu_ajax === 'undefined' || !dpu_ajax.product_id) {
-        return;
-    }
+       // Also listen for plus/minus button clicks if they exist
+    $(document).on('click', '.plus, .minus', function() {
+        setTimeout(function() {
+            var quantity = parseInt($qtyInput.val()) || (typeof dpu_ajax !== 'undefined' && dpu_ajax.min_quantity ? dpu_ajax.min_quantity : 1);
+
+            // Ensure quantity doesn't go below minimum
+            if (typeof dpu_ajax !== 'undefined' && dpu_ajax.min_quantity && quantity < dpu_ajax.min_quantity) {
+                quantity = dpu_ajax.min_quantity;
+                $qtyInput.val(quantity);
+            }
+
+            updatePrice(quantity);
+        }, 100);
+    });   }
 
     var $qtyInput = $('input.qty');
     var $priceContainer = $('.dpu-price-container[data-product-id="' + dpu_ajax.product_id + '"]');
 
-    console.log('DPU: Found quantity inputs:', $qtyInput.length);
-    console.log('DPU: Found price containers:', $priceContainer.length);
-
     if ($qtyInput.length === 0 || $priceContainer.length === 0) {
-        console.log('DPU: Missing required elements, exiting');
         return;
     }
 
-    console.log('DPU: Price container HTML:', $priceContainer.html());
-
     function updatePrice(quantity) {
-        console.log('DPU: Updating price for quantity:', quantity);
-
         // Add loading class immediately
         $priceContainer.addClass('dpu-price-loading');
 
@@ -34,10 +38,8 @@ jQuery(document).ready(function($) {
                 nonce: dpu_ajax.nonce
             },
             success: function(response) {
-                console.log('DPU: AJAX response:', response);
                 if (response.success) {
                     var priceData = response.data;
-                    console.log('DPU: Price data:', priceData);
 
                     // Add loading class
                     $priceContainer.addClass('dpu-price-loading');
@@ -50,13 +52,9 @@ jQuery(document).ready(function($) {
                         var unitPriceNum = parseFloat(priceData.unit_price_raw || priceData.unit_price.replace(/[^\d.,]/g, '').replace(',', '.'));
                         var savingsPercentage = 0;
 
-                        console.log('DPU: Original price num:', originalPriceNum, 'Unit price num:', unitPriceNum);
-
                         if (originalPriceNum > 0 && unitPriceNum > 0 && originalPriceNum > unitPriceNum) {
                             savingsPercentage = Math.round(((originalPriceNum - unitPriceNum) / originalPriceNum) * 100);
                         }
-
-                        console.log('DPU: Savings percentage:', savingsPercentage);
 
                         // Use prices as-is (WooCommerce already formats them safely)
                         var displayOriginalPrice = priceData.original_price;
@@ -64,11 +62,10 @@ jQuery(document).ready(function($) {
                         var displayTotalPrice = priceData.total_price;
 
                         // Get translation strings safely
-                        var totalText = 'До кошика';
+                        var totalText = dpu_ajax.strings && dpu_ajax.strings.add_to_cart ? dpu_ajax.strings.add_to_cart : 'До кошика';
                         var unitText = priceData.unit_text || 'товарів';
+                        var currencyText = dpu_ajax.strings && dpu_ajax.strings.currency ? dpu_ajax.strings.currency : 'грн';
                         var forItemsText = dpu_ajax.strings && dpu_ajax.strings.for_items ? dpu_ajax.strings.for_items.replace('%d', priceData.quantity) : 'для ' + priceData.quantity + ' ' + unitText;
-
-                        console.log('DPU: Translation strings - Total:', totalText, 'For items:', forItemsText);
 
                         priceHtml = '<div class="dpu-price-wrapper dpu-price-updated" data-total-price="' + displayTotalPrice.replace(/"/g, '&quot;') + '">' +
                             '<div class="dpu-price-row">' +
@@ -79,7 +76,7 @@ jQuery(document).ready(function($) {
                                 '<div class="dpu-savings-badge">-' + savingsPercentage + '%</div>' +
                             '</div>' +
                             '<div class="dpu-price-row">' +
-                                '<div class="dpu-total-price">' + totalText + ' ' + priceData.quantity + ' ' + unitText + ' (' + Math.round(priceData.total_price_raw) + ' грн)</div>' +
+                                '<div class="dpu-total-price">' + totalText + ' ' + priceData.quantity + ' ' + unitText + ' (' + Math.round(priceData.total_price_raw) + ' ' + currencyText + ')</div>' +
                             '</div>' +
                             '</div>';
                     } else {
@@ -88,11 +85,10 @@ jQuery(document).ready(function($) {
                         var displayTotalPrice = priceData.total_price;
 
                         // Get translation strings safely
-                        var totalText = 'До кошика';
+                        var totalText = dpu_ajax.strings && dpu_ajax.strings.add_to_cart ? dpu_ajax.strings.add_to_cart : 'До кошика';
                         var unitText = priceData.unit_text || 'товарів';
+                        var currencyText = dpu_ajax.strings && dpu_ajax.strings.currency ? dpu_ajax.strings.currency : 'грн';
                         var forItemsText = dpu_ajax.strings && dpu_ajax.strings.for_items ? dpu_ajax.strings.for_items.replace('%d', priceData.quantity) : 'для ' + priceData.quantity + ' ' + unitText;
-
-                        console.log('DPU: Translation strings - Total:', totalText, 'For items:', forItemsText);
 
                         priceHtml = '<div class="dpu-price-wrapper dpu-price-updated" data-total-price="' + displayTotalPrice.replace(/"/g, '&quot;') + '">' +
                             '<div class="dpu-price-row">' +
@@ -101,63 +97,57 @@ jQuery(document).ready(function($) {
                                 '</div>' +
                             '</div>' +
                             '<div class="dpu-price-row">' +
-                                '<div class="dpu-total-price">' + totalText + ' ' + priceData.quantity + ' ' + unitText + ' (' + Math.round(priceData.total_price_raw) + ' грн)</div>' +
+                                '<div class="dpu-total-price">' + totalText + ' ' + priceData.quantity + ' ' + unitText + ' (' + Math.round(priceData.total_price_raw) + ' ' + currencyText + ')</div>' +
                             '</div>' +
                             '</div>';
                     }
 
-                    console.log('DPU: Generated price HTML:', priceHtml);
                     $priceContainer.html(priceHtml);
 
                     // Remove loading class after a short delay
                     setTimeout(function() {
                         $priceContainer.removeClass('dpu-price-loading');
                     }, 300);
-
-                    console.log('DPU: Container updated successfully');
                 } else {
-                    console.log('DPU: AJAX response not successful');
+                    // Handle unsuccessful response silently
                 }
             },
             error: function(xhr, status, error) {
-                console.log('DPU: AJAX error:', status, error);
+                // Handle AJAX errors silently
             }
         });
     }
 
     // Update price on page load for current quantity
-    var initialQuantity = parseInt($qtyInput.val()) || (typeof dpu_min_quantity !== 'undefined' ? dpu_min_quantity : 1);
+    var initialQuantity = parseInt($qtyInput.val()) || (typeof dpu_ajax !== 'undefined' && dpu_ajax.min_quantity ? dpu_ajax.min_quantity : 1);
 
-    // Ensure initial quantity is at least the minimum
-    if (typeof dpu_min_quantity !== 'undefined' && initialQuantity < dpu_min_quantity) {
-        initialQuantity = dpu_min_quantity;
+    // Ensure initial quantity is at least the minimum (no AJAX needed on first load)
+    if (typeof dpu_ajax !== 'undefined' && dpu_ajax.min_quantity && initialQuantity < dpu_ajax.min_quantity) {
+        initialQuantity = dpu_ajax.min_quantity;
         $qtyInput.val(initialQuantity);
     }
 
-    console.log('DPU: Initial quantity:', initialQuantity, 'Min quantity:', dpu_min_quantity);
-    updatePrice(initialQuantity);
+    // No AJAX call needed on first load - price is already correct
 
     // Listen for quantity changes
     $qtyInput.on('input change', function() {
-        var quantity = parseInt($(this).val()) || (typeof dpu_min_quantity !== 'undefined' ? dpu_min_quantity : 1);
+        var quantity = parseInt($(this).val()) || (typeof dpu_ajax !== 'undefined' && dpu_ajax.min_quantity ? dpu_ajax.min_quantity : 1);
 
-        // Ensure quantity doesn't go below minimum
-        if (typeof dpu_min_quantity !== 'undefined' && quantity < dpu_min_quantity) {
-            quantity = dpu_min_quantity;
-            $(this).val(quantity);
-        }
-
-        updatePrice(quantity);
+            // Ensure quantity doesn't go below minimum
+            if (typeof dpu_ajax !== 'undefined' && dpu_ajax.min_quantity && quantity < dpu_ajax.min_quantity) {
+                quantity = dpu_ajax.min_quantity;
+                $qtyInput.val(quantity);
+            }        updatePrice(quantity);
     });
 
     // Also listen for plus/minus button clicks if they exist
     $(document).on('click', '.plus, .minus', function() {
         setTimeout(function() {
-            var quantity = parseInt($qtyInput.val()) || (typeof dpu_min_quantity !== 'undefined' ? dpu_min_quantity : 1);
+            var quantity = parseInt($qtyInput.val()) || (typeof dpu_ajax !== 'undefined' && dpu_ajax.min_quantity ? dpu_ajax.min_quantity : 1);
 
             // Ensure quantity doesn't go below minimum
-            if (typeof dpu_min_quantity !== 'undefined' && quantity < dpu_min_quantity) {
-                quantity = dpu_min_quantity;
+            if (typeof dpu_ajax !== 'undefined' && dpu_ajax.min_quantity && quantity < dpu_ajax.min_quantity) {
+                quantity = dpu_ajax.min_quantity;
                 $qtyInput.val(quantity);
             }
 
@@ -187,8 +177,7 @@ jQuery(document).ready(function($) {
 
             // Trigger click on the real add to cart button
             $addToCartButton.first().trigger('click');
-        } else {
-            console.log('DPU: No add to cart button found');
         }
+        // Handle case when no add to cart button is found silently
     });
 });

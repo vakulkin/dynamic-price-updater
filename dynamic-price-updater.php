@@ -1,11 +1,9 @@
 <?php
+
 /**
  * Plugin Name: Dynamic Price Updater
  * Description: Updates product price dynamically on single product page based on quantity for Woodmart dynamic discounts.
  * Version: 1.0.0
- * Author: Your Name
- * License: GPL v2 or later
- * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: dynamic-price-updater
  */
 
@@ -13,10 +11,70 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class Dynamic_Price_Updater {
 
-    public function __construct() {
-        add_action('plugins_loaded', array($this, 'load_textdomain'));
+// Add direct translation overrides as fallback
+add_filter('gettext', 'dpu_override_translations', 10, 3);
+add_filter('gettext_with_context', 'dpu_override_translations', 10, 4);
+
+function dpu_override_translations($translation, $text, $domain, $context = '')
+{
+    if ($domain === 'dynamic-price-updater') {
+        $overrides = array(
+            'Add to cart %d %s (%s UAH)' => 'До кошика %d %s (%s грн)',
+            'Add to cart' => 'До кошика',
+            'UAH' => 'грн',
+            'Total' => 'Загалом',
+            'for %d items' => 'за %d товарів',
+            'milliliter' => 'мілілітр',
+            'milliliters' => 'мілілітри',
+            'milliliters_gen' => 'мілілітрів',
+            'item' => 'товар',
+            'items' => 'товари',
+            'items_gen' => 'товарів',
+            'Dynamic Price Updater' => 'Динамічний оновлювач цін',
+            'Requires Woodmart theme with Dynamic Discounts enabled.' => 'Потребує тему Woodmart з увімкненими динамічними знижками.'
+        );
+
+        if (isset($overrides[$text])) {
+            return $overrides[$text];
+        }
+    }
+
+    return $translation;
+}
+
+// Check if Woodmart is active and dynamic discounts are enabled
+add_action('init', function () {
+    // Simplified dependency check
+    if (!function_exists('woodmart_woocommerce_installed') ||
+        !woodmart_woocommerce_installed() ||
+        !function_exists('woodmart_get_opt') ||
+        !woodmart_get_opt('discounts_enabled', 0) ||
+        !class_exists('XTS\Modules\Dynamic_Discounts\Manager') ||
+        !class_exists('XTS\Modules\Dynamic_Discounts\Main')) {
+
+        add_action('admin_init', function () {
+            add_action('admin_notices', function () {
+                echo '<div class="error"><p><strong>' . __('Dynamic Price Updater', 'dynamic-price-updater') . ':</strong> ' . __('Requires Woodmart theme with Dynamic Discounts enabled.', 'dynamic-price-updater') . '</p></div>';
+            });
+        });
+        return;
+    }
+
+    new Dynamic_Price_Updater();
+});
+
+class Dynamic_Price_Updater
+{
+    private $woodmart_manager;
+    private $woodmart_main;
+
+    public function __construct()
+    {
+        // Initialize Woodmart classes directly since they're required
+        $this->woodmart_manager = \XTS\Modules\Dynamic_Discounts\Manager::get_instance();
+        $this->woodmart_main = \XTS\Modules\Dynamic_Discounts\Main::get_instance();
+
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         add_action('wp_ajax_get_discounted_price', array($this, 'get_discounted_price'));
         add_action('wp_ajax_nopriv_get_discounted_price', array($this, 'get_discounted_price'));
@@ -25,13 +83,15 @@ class Dynamic_Price_Updater {
         add_action('woocommerce_single_product_summary', array($this, 'display_custom_price'), 15);
     }
 
-    public function load_textdomain() {
-        load_plugin_textdomain('dynamic-price-updater', false, dirname(plugin_basename(__FILE__)) . '/languages/');
-    }
-
-    public function enqueue_scripts() {
+    public function enqueue_scripts()
+    {
         if (is_product()) {
             global $product;
+
+            // Ensure we have a valid product object
+            if (!$this->is_valid_product($product)) {
+                $product = wc_get_product(get_the_ID());
+            }
 
             // Get product ID safely
             $product_id = $this->get_product_id_safely($product);
@@ -41,9 +101,11 @@ class Dynamic_Price_Updater {
                 'ajax_url' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('dpu_nonce'),
                 'product_id' => $product_id,
+                'min_quantity' => $this->get_product_min_quantity($product),
                 'strings' => array(
-                    'total' => __('Total', 'dynamic-price-updater'),
+                    'add_to_cart' => __('Add to cart', 'dynamic-price-updater'),
                     'for_items' => __('for %d items', 'dynamic-price-updater'),
+                    'currency' => __('UAH', 'dynamic-price-updater'),
                 )
             ));
 
@@ -52,25 +114,27 @@ class Dynamic_Price_Updater {
         }
     }
 
-    public function add_price_updater_script() {
+    public function add_price_updater_script()
+    {
         global $product;
-        if (!$this->is_valid_product($product)) return;
+        if (!$this->is_valid_product($product)) {
+            return;
+        }
 
         $discount = $this->get_discount_rules($product);
-        if (empty($discount)) return;
+        if (empty($discount)) {
+            return;
+        }
 
         // Get the minimum quantity for this product
         $min_quantity = $this->get_product_min_quantity($product);
 
-        echo '<script type="text/javascript">
-            var dpu_discount_rules = ' . json_encode($discount) . ';
-            var dpu_product_price = ' . $product->get_price() . ';
-            var dpu_product_id = ' . $product->get_id() . ';
-            var dpu_min_quantity = ' . $min_quantity . ';
-        </script>';
+        // No longer need to inject JavaScript variables - AJAX handles everything
+        // The product_id comes from wp_localize_script in enqueue_scripts()
     }
 
-    public function modify_price_html($price_html, $product) {
+    public function modify_price_html($price_html, $product)
+    {
         // Don't modify price in admin
         if (is_admin()) {
             return $price_html;
@@ -99,18 +163,16 @@ class Dynamic_Price_Updater {
         return $price_html;
     }
 
-    public function display_custom_price() {
+    public function display_custom_price()
+    {
         global $product;
-        if (!$this->is_valid_product($product)) return;
+        if (!$this->is_valid_product($product) || !is_product()) {
+            return;
+        }
 
-        // Only show on single product pages
-        if (!is_product()) return;
-
-        // Check if this product has discount rules
         $discount = $this->get_discount_rules($product);
         if (empty($discount)) {
-            // No discount rules, show regular price with total
-            // Get minimum quantity for this product
+            // No discount rules, show regular price
             $min_quantity = $this->get_product_min_quantity($product);
             $price = $this->apply_tax_settings($product->get_price(), $product);
             $total_price = $price * $min_quantity;
@@ -127,24 +189,16 @@ class Dynamic_Price_Updater {
             return;
         }
 
-        // Get minimum quantity for this product
+        // Process discount rules
         $min_quantity = $this->get_product_min_quantity($product);
-
-        // Get current quantity (default to minimum quantity)
-        $quantity = $min_quantity;
-        if (isset($_POST['quantity'])) {
-            $quantity = max($min_quantity, intval($_POST['quantity']));
-        }
-
-        // Calculate prices with discount
+        $quantity = isset($_POST['quantity']) ? max($min_quantity, intval($_POST['quantity'])) : $min_quantity;
         $prices = $this->calculate_prices_with_discount($product, $quantity, $discount);
-
-        // Generate enhanced price HTML
         $enhanced_html = $this->generate_price_html($prices, $quantity, $product);
         echo '<div class="dpu-price-container" data-product-id="' . $product->get_id() . '">' . $enhanced_html . '</div>';
     }
 
-    public function get_discounted_price() {
+    public function get_discounted_price()
+    {
         check_ajax_referer('dpu_nonce', 'nonce');
 
         $product_id = intval($_POST['product_id']);
@@ -156,25 +210,16 @@ class Dynamic_Price_Updater {
         }
 
         $discount = $this->get_discount_rules($product);
-        if (empty($discount)) {
-            wp_send_json_error('No discount rules found');
+        if (empty($discount) || $discount['_woodmart_rule_type'] !== 'bulk') {
+            wp_send_json_error('No valid discount rules found');
         }
 
-        if ($discount['_woodmart_rule_type'] !== 'bulk') {
-            wp_send_json_error('Not a bulk discount type');
-        }
-
-        // Ensure quantity is at least the minimum
         $min_quantity = $this->get_product_min_quantity($product);
         $quantity = max($min_quantity, $quantity);
-
-        // Calculate prices with discount
         $prices = $this->calculate_prices_with_discount($product, $quantity, $discount);
-
-        // Determine unit text based on category and quantity
         $unit_text = $this->get_unit_text($product, $quantity);
 
-        $price_data = array(
+        wp_send_json_success(array(
             'original_price' => wc_price($prices['original_price']),
             'unit_price' => wc_price($prices['discounted_price']),
             'total_price' => wc_price($prices['total_price']),
@@ -184,188 +229,42 @@ class Dynamic_Price_Updater {
             'has_discount' => $prices['has_discount'],
             'quantity' => $quantity,
             'unit_text' => $unit_text
-        );
-
-        error_log('DPU: Price data - Original: ' . $price_data['original_price'] . ', Unit: ' . $price_data['unit_price'] . ', Total: ' . $price_data['total_price'] . ', Has discount: ' . ($prices['has_discount'] ? 'yes' : 'no') . ', Quantity: ' . $quantity);
-        wp_send_json_success($price_data);
-    }
-
-    private function get_discount_rules($product) {
-        if (!$this->is_valid_product($product)) {
-            return array();
-        }
-
-        $all_discount_rules = $this->get_all_discount_rules();
-
-        if (!is_array($all_discount_rules)) {
-            return array();
-        }
-
-        uasort($all_discount_rules, array($this, 'sort_by_priority'));
-
-        foreach ($all_discount_rules as $discounts_id => $discount_rules) {
-            if (!$this->check_discount_condition($discount_rules, $product)) {
-                continue;
-            }
-
-            $discount_rules['post_id'] = $discounts_id;
-            $discount_rules['title'] = get_the_title($discounts_id);
-
-            return $discount_rules;
-        }
-
-        return array();
-    }
-
-    private function get_all_discount_rules() {
-        $cache_key = 'dpu_all_discount_rules';
-        $cached = get_transient($cache_key);
-        if ($cached) {
-            return $cached;
-        }
-
-        $discount_posts = get_posts(array(
-            'post_type' => 'wd_woo_discounts',
-            'posts_per_page' => -1,
-            'post_status' => 'publish'
         ));
+    }
 
-        if (empty($discount_posts)) {
+    private function get_discount_rules($product)
+    {
+        if (!$this->is_valid_product($product)) {
             return array();
         }
 
-        $rules = array();
-        foreach ($discount_posts as $post) {
-            $rules[$post->ID] = $this->get_single_discount_rules($post->ID);
+        try {
+            return $this->woodmart_manager->get_discount_rules($product);
+        } catch (Exception $e) {
+            return array();
         }
-
-        set_transient($cache_key, $rules, HOUR_IN_SECONDS);
-        return $rules;
     }
 
-    private function get_single_discount_rules($post_id) {
-        $meta_keys = array(
-            '_woodmart_rule_type',
-            'discount_condition',
-            'discount_rules',
-            'discount_quantities'
-        );
-
-        $rules = array();
-        foreach ($meta_keys as $key) {
-            $rules[$key] = get_post_meta($post_id, $key, true);
-        }
-
-        return $rules;
+    private function is_valid_product($product)
+    {
+        return $product instanceof WC_Product;
     }
 
-    private function check_discount_condition($discount_rules, $product) {
-        if (empty($discount_rules['discount_condition']) || !is_array($discount_rules['discount_condition'])) {
-            return false;
-        }
-
-        if (!$this->is_valid_product($product)) {
-            return false;
-        }
-
-        $conditions = $discount_rules['discount_condition'];
-        $is_active = false;
-        $is_exclude = false;
-
-        if ('variation' === $product->get_type()) {
-            $product = wc_get_product($product->get_parent_id());
-        }
-
-        foreach ($conditions as $condition) {
-            $condition['woodmart_discount_priority'] = $this->get_condition_priority($condition['type']);
-
-            switch ($condition['type']) {
-                case 'all':
-                    $is_active = 'include' === $condition['comparison'];
-                    if ('exclude' === $condition['comparison']) {
-                        $is_exclude = true;
-                    }
-                    break;
-                case 'product':
-                    $is_needed_product = (int) $product->get_id() === (int) $condition['query'];
-                    if ($is_needed_product) {
-                        if ('exclude' === $condition['comparison']) {
-                            $is_active = false;
-                            $is_exclude = true;
-                        } else {
-                            $is_active = true;
-                        }
-                    }
-                    break;
-                case 'product_type':
-                    $is_needed_type = $product->get_type() === $condition['product-type-query'];
-                    if ($is_needed_type) {
-                        if ('exclude' === $condition['comparison']) {
-                            $is_active = false;
-                            $is_exclude = true;
-                        } else {
-                            $is_active = true;
-                        }
-                    }
-                    break;
-                case 'product_cat':
-                case 'product_tag':
-                    $terms = wp_get_post_terms($product->get_id(), $condition['type'], array('fields' => 'ids'));
-                    if ($terms) {
-                        $is_needed_term = in_array((int) $condition['query'], $terms, true);
-                        if ($is_needed_term) {
-                            if ('exclude' === $condition['comparison']) {
-                                $is_active = false;
-                                $is_exclude = true;
-                            } else {
-                                $is_active = true;
-                            }
-                        }
-                    }
-                    break;
-            }
-
-            if ($is_exclude || $is_active) {
-                break;
-            }
-        }
-
-        return $is_active;
-    }
-
-    private function get_condition_priority($type) {
-        $priority = 50;
-        switch ($type) {
-            case 'all': $priority = 10; break;
-            case 'product_type':
-            case 'product_cat':
-            case 'product_tag': $priority = 30; break;
-            case 'product': $priority = 40; break;
-        }
-        return $priority;
-    }
-
-    private function sort_by_priority($a, $b) {
-        return $b['woodmart_discount_priority'] <=> $a['woodmart_discount_priority'];
-    }
-
-    private function is_valid_product($product) {
-        return $product && is_a($product, 'WC_Product');
-    }
-
-    private function apply_tax_settings($price, $product = null) {
+    private function apply_tax_settings($price, $product = null)
+    {
         if (!wc_tax_enabled()) {
             return $price;
         }
 
-        if ('incl' === get_option('woocommerce_tax_display_shop')) {
+        if ('incl' === get_option('effect loo')) {
             return wc_get_price_including_tax($product, array('price' => $price));
         } else {
             return wc_get_price_excluding_tax($product, array('price' => $price));
         }
     }
 
-    private function calculate_prices_with_discount($product, $quantity, $discount) {
+    private function calculate_prices_with_discount($product, $quantity, $discount)
+    {
         $original_price = $product->get_price();
         $discounted_price = $original_price;
         $has_discount = false;
@@ -377,13 +276,19 @@ class Dynamic_Price_Updater {
                 $discount_type = $rule['_woodmart_discount_type'];
                 $discount_value = $rule['_woodmart_discount_' . $discount_type . '_value'];
 
-                $discounted_price = $this->calculate_discounted_price($original_price, $discount_type, $discount_value);
-                $has_discount = true;
-                break;
+                try {
+                    $discounted_price = $this->woodmart_main->get_product_price($original_price, array(
+                        'type' => $discount_type,
+                        'value' => $discount_value
+                    ));
+                    $has_discount = true;
+                    break;
+                } catch (Exception $e) {
+                    break;
+                }
             }
         }
 
-        // Apply tax settings
         $original_price = $this->apply_tax_settings($original_price, $product);
         $discounted_price = $this->apply_tax_settings($discounted_price, $product);
 
@@ -395,11 +300,11 @@ class Dynamic_Price_Updater {
         );
     }
 
-    private function generate_price_html($prices, $quantity, $product = null) {
-        // Determine the unit text based on product category and quantity
-        $unit_text = $this->get_unit_text($product, $quantity);
+    private function generate_price_html($prices, $quantity, $product = null)
+    {
 
-        $total_price_text = 'До кошика ' . $quantity . ' ' . $unit_text . ' (' . round($prices['total_price']) . ' грн)';
+        $unit_text = $this->get_unit_text($product, $quantity);
+        $total_price_text = sprintf(__('Add to cart %d %s (%s UAH)', 'dynamic-price-updater'), $quantity, $unit_text, round($prices['total_price']));
 
         if ($prices['has_discount']) {
             $savings_percentage = round((($prices['original_price'] - $prices['discounted_price']) / $prices['original_price']) * 100);
@@ -428,10 +333,10 @@ class Dynamic_Price_Updater {
                 '</div>';
         }
     }
-    private function get_product_min_quantity($product) {
+    private function get_product_min_quantity($product)
+    {
         $min_quantity = 1;
 
-        // Try to get min quantity from justb2b-options plugin using WooCommerce filter
         if ($this->is_valid_product($product)) {
             $args = apply_filters('woocommerce_quantity_input_args', array('min_value' => 1), $product);
             if (isset($args['min_value'])) {
@@ -440,8 +345,7 @@ class Dynamic_Price_Updater {
             }
         }
 
-        // Fallback to wcmmq plugin if justb2b-options is not available or doesn't set min_value
-        if (function_exists('wcmmq_get_product_limits')) {
+        if (function_exists('wcmmq_get_product_limits') && $this->is_valid_product($product)) {
             $limits = wcmmq_get_product_limits($product->get_id());
             if (is_array($limits) && isset($limits['min_qty'])) {
                 $min_quantity = max(1, (int) $limits['min_qty']);
@@ -451,45 +355,33 @@ class Dynamic_Price_Updater {
         return $min_quantity;
     }
 
-    private function get_product_id_safely($product) {
-        if ($product && is_a($product, 'WC_Product')) {
-            return $product->get_id();
-        }
-        return get_the_ID() ?: 0;
+    private function get_product_id_safely($product)
+    {
+        return $product instanceof WC_Product ? $product->get_id() : (get_the_ID() ?: 0);
     }
 
-    private function get_unit_text($product, $quantity) {
+    private function get_unit_text($product, $quantity)
+    {
         $is_rozpyv = $product && $this->is_valid_product($product) && has_term('rozpyv', 'product_cat', $product->get_id());
-        
+
         if ($is_rozpyv) {
-            // Ukrainian plural forms for "мілілітр"
+            // Milliliter forms
             if ($quantity == 1) {
-                return 'мілілітр';
+                return __('milliliter', 'dynamic-price-updater');
             } elseif ($quantity >= 2 && $quantity <= 4) {
-                return 'мілілітри';
+                return __('milliliters', 'dynamic-price-updater');
             } else {
-                return 'мілілітрів';
+                return __('milliliters_gen', 'dynamic-price-updater');
             }
         } else {
-            // Ukrainian plural forms for "товар"
+            // Product forms
             if ($quantity == 1) {
-                return 'товар';
+                return __('item', 'dynamic-price-updater');
             } elseif ($quantity >= 2 && $quantity <= 4) {
-                return 'товари';
+                return __('items', 'dynamic-price-updater');
             } else {
-                return 'товарів';
+                return __('items_gen', 'dynamic-price-updater');
             }
         }
     }
-
-    private function calculate_discounted_price($price, $type, $value) {
-        if ($type === 'amount') {
-            return $price - $value;
-        } elseif ($type === 'percentage') {
-            return $price - ($price * ($value / 100));
-        }
-        return $price;
-    }
 }
-
-new Dynamic_Price_Updater();
