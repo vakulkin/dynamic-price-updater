@@ -1,4 +1,14 @@
-/* Dynamic Price Updater - Clean and Simple Design */
+/**
+ * Dynamic Price Updater - Styles
+ *
+ * Clean and modern styling for the dynamic price display component.
+ * Provides responsive design and interactive elements.
+ */
+
+/* ==========================================================================
+   Base Container Styles
+   ========================================================================== */
+
 .dpu-price-container {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     margin: 1.5rem 0;
@@ -12,6 +22,10 @@
     padding: 1rem;
     position: relative;
 }
+
+/* ==========================================================================
+   Layout and Structure
+   ========================================================================== */
 
 .dpu-price-row {
     display: flex;
@@ -31,14 +45,10 @@
     flex: 1;
 }
 
-.dpu-original-price {
-    color: #64748b;
-    text-decoration: line-through;
-    font-size: 0.875rem;
-    font-weight: 400;
-}
+/* ==========================================================================
+   Price Display Elements
+   ========================================================================== */
 
-.dpu-discounted-price,
 .dpu-regular-price {
     color: #1e293b;
     font-weight: 700;
@@ -46,9 +56,9 @@
     line-height: 1.2;
 }
 
-.dpu-discounted-price {
-    color: #dc2626;
-}
+/* ==========================================================================
+   Interactive Add to Cart Button
+   ========================================================================== */
 
 .dpu-total-price {
     background: linear-gradient(135deg, #1a1a1a 0%, #000000 100%);
@@ -79,6 +89,7 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+/* Click Animation */
 .dpu-total-price.dpu-clicked {
     animation: buttonPulse 0.3s ease;
 }
@@ -88,6 +99,10 @@
     50% { transform: scale(0.98); }
     100% { transform: scale(1); }
 }
+
+/* ==========================================================================
+   Typography and Content Overrides
+   ========================================================================== */
 
 /* Ensure all text in the button is white */
 .dpu-total-price *,
@@ -99,24 +114,10 @@
     border: none !important;
 }
 
-.dpu-total-price.dpu-adding-to-cart {
-    opacity: 0.8;
-    cursor: not-allowed;
-}
+/* ==========================================================================
+   Responsive Design
+   ========================================================================== */
 
-.dpu-savings-badge {
-    background: #f59e0b;
-    color: white;
-    font-weight: 700;
-    font-size: 0.75rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    position: absolute;
-    top: -8px;
-    right: -8px;
-}
-
-/* Responsive Design */
 @media (max-width: 768px) {
     .dpu-price-wrapper {
         padding: 0.75rem;
@@ -129,7 +130,6 @@
         gap: 0.5rem;
     }
 
-    .dpu-discounted-price,
     .dpu-regular-price {
         font-size: 1.125rem;
     }
@@ -142,10 +142,4 @@
         min-height: 44px;
         text-align: center;
     }
-}
-
-/* Loading state */
-.dpu-price-loading {
-    opacity: 0.6;
-    pointer-events: none;
 }
