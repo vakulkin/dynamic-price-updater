@@ -5,6 +5,39 @@
  * Provides responsive design and interactive elements.
  */
 
+/* ==========================================================    .single_add_to_cart_button,
+    button[type="submit"].single_add_to_cart_button {
+        min-height: 40px !important;
+        padding: var(--dpu-spacing-sm) var(--dpu-spacing-md) !important;
+        font-size: 12px !important;
+        margin-top: var(--dpu-spacing-md) !important;
+    }=========
+   CSS Custom Properties (Variables)
+   ========================================================================== */
+
+:root {
+    --dpu-primary-color: #000000;
+    --dpu-primary-hover: #333333;
+    --dpu-primary-active: #000000;
+    --dpu-text-light: #ffffff;
+    --dpu-text-dark: #374151;
+    --dpu-border-color: #d1d5db;
+    --dpu-border-hover: #9ca3af;
+    --dpu-background-default: #f9fafb;
+    --dpu-background-hover: #f3f4f6;
+    --dpu-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --dpu-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --dpu-transition: none;
+    --dpu-border-radius: 4px;
+    --dpu-border-radius-lg: 8px;
+    --dpu-spacing-xs: 4px;
+    --dpu-spacing-sm: 6px;
+    --dpu-spacing-md: 8px;
+    --dpu-spacing-lg: 10px;
+    --dpu-spacing-xl: 12px;
+    --dpu-spacing-2xl: 16px;
+}
+
 /* ==========================================================================
    Base Container Styles
    ========================================================================== */
@@ -16,7 +49,6 @@
 }
 
 .dpu-price-wrapper {
-    background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     padding: 1rem;
@@ -49,11 +81,24 @@
    Price Display Elements
    ========================================================================== */
 
-.dpu-regular-price {
-    color: #1e293b;
-    font-weight: 700;
+.dpu-regular-price .woocommerce-Price-amount {
     font-size: 1.25rem;
-    line-height: 1.2;
+    font-weight: 700 !important;
+}
+
+.dpu-sale-price .woocommerce-Price-amount {
+    font-size: 1.25rem;
+    font-weight: 700 !important;
+}
+
+.dpu-crossed {
+    text-decoration: line-through;
+    color: #9ca3af !important;
+}
+
+.dpu-crossed .woocommerce-Price-amount {
+    color: #9ca3af !important;
+    font-weight: 400 !important;
 }
 
 /* ==========================================================================
@@ -72,7 +117,6 @@
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
-    transition: all 0.2s ease;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     position: relative;
     overflow: hidden;
@@ -80,24 +124,6 @@
 
 .dpu-total-price:hover {
     background: linear-gradient(135deg, #333333 0%, #1a1a1a 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.dpu-total-price:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* Click Animation */
-.dpu-total-price.dpu-clicked {
-    animation: buttonPulse 0.3s ease;
-}
-
-@keyframes buttonPulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(0.98); }
-    100% { transform: scale(1); }
 }
 
 /* ==========================================================================
@@ -123,23 +149,100 @@
         padding: 0.75rem;
         margin: 1rem 0;
     }
+}
 
-    .dpu-price-main {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.5rem;
+
+/* ==========================================================================
+   Add to Cart Button Styling
+   ========================================================================== */
+
+.single_add_to_cart_button,
+button[type="submit"].single_add_to_cart_button {
+    width: 100% !important;
+    min-height: 50px !important;
+    padding: var(--dpu-spacing-lg) var(--dpu-spacing-2xl) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    border-radius: var(--dpu-border-radius-lg) !important;
+    background-color: var(--dpu-primary-color) !important;
+    color: var(--dpu-text-light) !important;
+    border: 2px solid var(--dpu-primary-color) !important;
+    cursor: pointer !important;
+    transition: var(--dpu-transition) !important;
+    box-shadow: var(--dpu-shadow-md) !important;
+    margin-top: var(--dpu-spacing-xl) !important;
+    display: inline-block !important;
+
+    &:hover {
+        background-color: var(--dpu-primary-hover) !important;
+        border-color: var(--dpu-primary-hover) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 16px -2px rgba(0, 0, 0, 0.2) !important;
     }
 
-    .dpu-regular-price {
-        font-size: 1.125rem;
+    &:active {
+        transform: translateY(0) !important;
+        box-shadow: var(--dpu-shadow-md) !important;
     }
 
-    .dpu-total-price {
-        font-size: 0.8125rem;
-        padding: 0.75rem 1rem;
-        width: 100%;
-        justify-content: center;
-        min-height: 44px;
-        text-align: center;
+    &:focus {
+        outline: 2px solid var(--dpu-primary-color) !important;
+        outline-offset: 2px !important;
+        box-shadow: var(--dpu-shadow-md), 0 0 0 2px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    &.loading {
+        opacity: 0.7 !important;
+        pointer-events: none !important;
+        position: relative !important;
+
+        &::after {
+            content: '' !important;
+            position: absolute !important;
+            width: 20px !important;
+            height: 20px !important;
+            margin: auto !important;
+            border: 2px solid transparent !important;
+            border-top-color: currentColor !important;
+            border-radius: 50% !important;
+            animation: spin 1s linear infinite !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+        }
     }
 }
+
+/* Responsive adjustments for add to cart button */
+@media (max-width: 768px) {
+
+    .single_add_to_cart_button,
+    button[type="submit"].single_add_to_cart_button {
+        min-height: 45px !important;
+        padding: var(--dpu-spacing-md) var(--dpu-spacing-lg) !important;
+        font-size: 13px !important;
+        margin-top: var(--dpu-spacing-lg) !important;
+    }
+}
+
+@media (max-width: 480px) {
+
+    .single_add_to_cart_button,
+    button[type="submit"].single_add_to_cart_button {
+        min-height: 40px !important;
+        padding: var(--j2b-spacing-sm) var(--j2b-spacing-md) !important;
+        font-size: 12px !important;
+        margin-top: var(--j2b-spacing-md) !important;
+    }
+}
+
+/* ==========================================================================
+   Cart Form Overrides
+   ========================================================================== */
+
+form.cart {
+    gap: 0 !important;
+}
+

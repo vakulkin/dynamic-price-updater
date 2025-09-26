@@ -13,10 +13,8 @@
      */
     class DynamicPriceUpdater {
         constructor() {
-            this.$qtyInput = $('input.qty');
+            this.$qtyInput = $('form.cart input.qty');
             this.$priceContainer = $('.dpu-price-container');
-            this.animationDuration = 300;
-            this.updateDelay = 100;
 
             this.init();
         }
@@ -43,9 +41,7 @@
 
             // Handle plus/minus button clicks
             $(document).on('click', '.plus, .minus', () => {
-                setTimeout(() => {
-                    this.updateTotalPrice();
-                }, this.updateDelay);
+                this.updateTotalPrice();
             });
 
             // Handle add to cart button click
@@ -61,9 +57,9 @@
             const quantity = this.getCurrentQuantity();
             const unitPrice = this.getUnitPrice();
             const totalPrice = unitPrice * quantity;
-            const isRozpyv = this.isRozpyvProduct();
+            const unitType = this.getUnitType();
 
-            const unitText = this.getUnitText(quantity, isRozpyv);
+            const unitText = this.getUnitText(quantity, unitType);
             const totalPriceText = this.formatTotalPriceText(quantity, unitText, totalPrice);
 
             this.updatePriceDisplay(totalPriceText);
@@ -82,28 +78,41 @@
          * @return {number} Unit price
          */
         getUnitPrice() {
-            return parseFloat(this.$priceContainer.data('unit-price')) || 0;
+            return parseFloat(this.$priceContainer.attr('data-unit-price')) || 0;
         }
 
         /**
-         * Check if this is a rozpyv (liquid) product
-         * @return {boolean} True if rozpyv product
+         * Get the unit type from data attribute
+         * @return {string} Unit type
          */
-        isRozpyvProduct() {
-            return this.$priceContainer.data('is-rozpyv') === '1';
+        getUnitType() {
+            return this.$priceContainer.attr('data-unit-type') || 'products';
         }
 
         /**
-         * Get the appropriate unit text based on quantity and product type
+         * Check if this is a volume-based (liquid) product
+         * @return {boolean} True if volume-based product
+         */
+        isVolumeBasedProduct() {
+            return this.$priceContainer.attr('data-is-volume-based') === '1';
+        }
+
+        /**
+         * Get the appropriate unit text based on quantity and unit type
          * @param {number} quantity - The quantity
-         * @param {boolean} isRozpyv - Whether it's a rozpyv product
+         * @param {string} unitType - The unit type ('milliliters', 'full-bottles', 'remains-bottles', 'products')
          * @return {string} Unit text in Ukrainian
          */
-        getUnitText(quantity, isRozpyv) {
-            if (isRozpyv) {
-                return this.getMilliliterText(quantity);
-            } else {
-                return this.getProductText(quantity);
+        getUnitText(quantity, unitType) {
+            switch (unitType) {
+                case 'milliliters':
+                    return this.getMilliliterText(quantity);
+                case 'full-bottles':
+                    return this.getFullBottleText(quantity);
+                case 'remains-bottles':
+                    return this.getRemainsBottleText(quantity);
+                default:
+                    return this.getProductText(quantity);
             }
         }
 
@@ -134,6 +143,36 @@
                 return 'товари';
             } else {
                 return 'товарів';
+            }
+        }
+
+        /**
+         * Get full bottle text based on Ukrainian grammar rules
+         * @param {number} quantity - The quantity
+         * @return {string} Full bottle text
+         */
+        getFullBottleText(quantity) {
+            if (quantity === 1) {
+                return 'повноцінний флакон';
+            } else if (quantity >= 2 && quantity <= 4) {
+                return 'повноцінні флакони';
+            } else {
+                return 'повноцінних флаконів';
+            }
+        }
+
+        /**
+         * Get remains bottle text based on Ukrainian grammar rules
+         * @param {number} quantity - The quantity
+         * @return {string} Remains bottle text
+         */
+        getRemainsBottleText(quantity) {
+            if (quantity === 1) {
+                return 'флакон із залишками';
+            } else if (quantity >= 2 && quantity <= 4) {
+                return 'флакони із залишками';
+            } else {
+                return 'флаконів із залишками';
             }
         }
 
@@ -169,28 +208,10 @@
             const $button = $(e.target).closest('.dpu-total-price');
             const quantity = this.getCurrentQuantity();
 
-            // Add click animation
-            this.animateButtonClick($button);
-
             // Find and trigger the real WooCommerce add to cart button
             this.triggerAddToCart(quantity);
         }
 
-        /**
-         * Animate the button click
-         * @param {jQuery} $button - The button element
-         */
-        animateButtonClick($button) {
-            $button.addClass('dpu-clicked');
-            setTimeout(() => {
-                $button.removeClass('dpu-clicked');
-            }, this.animationDuration);
-        }
-
-        /**
-         * Trigger the WooCommerce add to cart functionality
-         * @param {number} quantity - The quantity to add
-         */
         triggerAddToCart(quantity) {
             // Set the quantity first
             this.$qtyInput.val(quantity);
