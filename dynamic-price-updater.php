@@ -89,6 +89,13 @@ class Dynamic_Price_Updater
             return ''; // Hide the normal price for main product
         }
 
+        // If in loop and in rozpyv category, add /мл to price
+        if ($is_in_loop && has_term('rozpyv', 'product_cat', $product->get_id())) {
+            // Try to add /мл after the price value (before any HTML tags that may follow)
+            // This works for most WooCommerce price formats
+            $price_html = preg_replace('/(<span[^>]*class="[^"]*amount[^"]*"[^>]*>.*?<\/span>)/', '$1/мл', $price_html);
+        }
+
         // Return original price HTML for all other cases
         return $price_html;
     }
